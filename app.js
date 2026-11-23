@@ -91,8 +91,21 @@ function updateAdminUI() {
 
 // ================= ESTRUTURA DO TORNEIO & BRACKET =================
 
+const STORAGE_KEY = "oriental_tournament_v3";
+
 function loadTournamentData() {
-  const saved = localStorage.getItem("oriental_tournament_data");
+  // Limpar dados de versões antigas que estavam travadas no navegador
+  localStorage.removeItem("oriental_tournament_data");
+  localStorage.removeItem("oriental_tournament_v1");
+  localStorage.removeItem("oriental_tournament_v2");
+
+  // Se houver parâmetro de reset na URL
+  if (window.location.search.includes("reset=true")) {
+    localStorage.removeItem(STORAGE_KEY);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
       currentTournament = JSON.parse(saved);
@@ -103,18 +116,24 @@ function loadTournamentData() {
     }
   }
 
-  // Estado inicial limpo: nenhum torneio fictício
+  // Estado inicial 100% limpo
   currentTournament = null;
   renderBracket();
 }
 
 function confirmClearTournament() {
-  if (!isAdminLoggedIn) return;
   if (confirm("Tem certeza que deseja apagar o chaveamento atual e iniciar do zero?")) {
     currentTournament = null;
+    localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem("oriental_tournament_data");
     renderBracket();
   }
+}
+
+function forceResetAll() {
+  localStorage.clear();
+  currentTournament = null;
+  window.location.reload();
 }
 
 // ================= GERENCIAMENTO DE SORTEIO & QUANTIDADE =================
@@ -303,7 +322,7 @@ function getEnteredPlayerNames() {
 
 function saveTournamentData() {
   if (currentTournament) {
-    localStorage.setItem("oriental_tournament_data", JSON.stringify(currentTournament));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentTournament));
   }
 }
 
