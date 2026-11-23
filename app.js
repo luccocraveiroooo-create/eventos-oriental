@@ -138,8 +138,81 @@ function forceResetAll() {
 
 // ================= GERENCIAMENTO DE SORTEIO & QUANTIDADE =================
 
-let currentSelectedCount = 10;
+let currentSelectedCount = 8;
+let currentTeamSize = 1; // 1 = 1x1, 2 = 2x2, ..., 8 = 8x8
+let teamFormingMode = "random_teams"; // "random_teams" ou "preformed_teams"
 let currentInputMode = "paste";
+
+function setTeamSize(size) {
+  size = parseInt(size) || 1;
+  if (size < 1) size = 1;
+  if (size > 8) size = 8;
+  currentTeamSize = size;
+
+  // Atualizar botões de modalidade
+  document.querySelectorAll(".team-btn").forEach(btn => {
+    const btnSize = parseInt(btn.getAttribute("data-team"));
+    if (btnSize === size) {
+      btn.className = "team-btn px-2 py-2 text-xs font-bold rounded-lg border border-cyan-500 bg-cyan-950/80 text-cyan-300 transition text-center shadow";
+    } else {
+      btn.className = "team-btn px-2 py-2 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition text-center";
+    }
+  });
+
+  // Atualizar badge do resumo da modalidade
+  const badge = document.getElementById("teamModeSummaryBadge");
+  const optionBox = document.getElementById("teamSorteioOptionBox");
+  const step2Title = document.getElementById("step2TitleLabel");
+  const step2Unit = document.getElementById("step2CountUnitLabel");
+  const step3Title = document.getElementById("step3TitleLabel");
+  const step3Helper = document.getElementById("step3HelperText");
+
+  const modeNames = {
+    1: "1x1 (Individual)",
+    2: "2x2 (Duplas)",
+    3: "3x3 (Trios)",
+    4: "4x4 (Squads)",
+    5: "5x5 (Times / Partys)",
+    6: "6x6 (Sextetos)",
+    7: "7x7",
+    8: "8x8 (Partys Completas)"
+  };
+
+  if (badge) badge.textContent = modeNames[size] || `${size}x${size}`;
+
+  if (size === 1) {
+    if (optionBox) optionBox.classList.add("hidden");
+    if (step2Title) step2Title.textContent = "Quantidade de Participantes";
+    if (step2Unit) step2Unit.textContent = "participantes (mínimo 2, máximo 64)";
+    if (step3Title) step3Title.textContent = "Nomes dos Lutadores";
+    if (step3Helper) step3Helper.textContent = "💡 Dica: Cole os nicks dos lutadores (1 por linha). O sistema irá sortear os confrontos!";
+  } else {
+    if (optionBox) optionBox.classList.remove("hidden");
+    if (step2Title) step2Title.textContent = "Quantidade de Equipes no Chaveamento";
+    if (step2Unit) step2Unit.textContent = "equipes no chaveamento (ex: 8 equipes)";
+    if (step3Title) step3Title.textContent = teamFormingMode === "random_teams" 
+      ? `Nomes dos Jogadores para Sortear nos Times (${size} por equipe)` 
+      : "Nomes das Equipes Formadas";
+    if (step3Helper) step3Helper.textContent = teamFormingMode === "random_teams"
+      ? `💡 Dica: Cole os nicks individuais de todos os jogadores. O sistema irá embaralhar os nomes, montar as equipes de ${size}x${size} e depois sortear os confrontos!`
+      : "💡 Dica: Cada linha representa uma equipe já formada.";
+  }
+
+  updateBracketStructureHint(currentSelectedCount);
+  updatePlayerListStatusBadge();
+
+  if (currentInputMode === "slots") {
+    renderSlotsInputs();
+  }
+}
+
+function onTeamFormingModeChange() {
+  const radio = document.querySelector('input[name="teamFormingMode"]:checked');
+  if (radio) {
+    teamFormingMode = radio.value;
+    setTeamSize(currentTeamSize);
+  }
+}
 
 function setPlayerCount(count) {
   count = parseInt(count) || 2;
@@ -184,24 +257,34 @@ function updateBracketStructureHint(n) {
   const hintEl = document.getElementById("bracketStructureHint");
   if (!hintEl) return;
 
+  const entityType = currentTeamSize === 1 ? "lutadores" : "equipes";
+
   // Potência de 2
   let power = 2;
   while (power < n) {
     power *= 2;
   }
 
+  let text = "";
   if (n === power) {
-    if (n === 4) hintEl.textContent = "Semi-Finais (2 lutas) ➔ Grande Final";
-    else if (n === 8) hintEl.textContent = "Quartas (4 lutas) ➔ Semi (2 lutas) ➔ Final";
-    else if (n === 16) hintEl.textContent = "Oitavas (8 lutas) ➔ Quartas ➔ Semi ➔ Final";
-    else if (n === 32) hintEl.textContent = "16 Avos (16 lutas) ➔ Oitavas ➔ Quartas ➔ Semi ➔ Final";
-    else hintEl.textContent = `${n} lutadores em chaveamento direto perfeito!`;
+    if (n === 4) text = `Semi-Finais (2 lutas) ➔ Grande Final (${n} ${entityType})`;
+    else if (n === 8) text = `Quartas (4 lutas) ➔ Semi (2 lutas) ➔ Final (${n} ${entityType})`;
+    else if (n === 16) text = `Oitavas (8 lutas) ➔ Quartas ➔ Semi ➔ Final (${n} ${entityType})`;
+    else if (n === 32) text = `16 Avos (16 lutas) ➔ Oitavas ➔ Quartas ➔ Semi ➔ Final`;
+    else text = `${n} ${entityType} em chaveamento direto perfeito!`;
   } else {
     const targetPlayersInMain = power / 2;
     const prelimMatches = n - targetPlayersInMain;
     let nextStageName = targetPlayersInMain === 8 ? "Quartas" : (targetPlayersInMain === 4 ? "Semi" : "Oitavas");
-    hintEl.textContent = `Fase 1 com ${prelimMatches} ${prelimMatches === 1 ? 'preliminar' : 'preliminares'} ➔ ${nextStageName} ➔ Final`;
+    text = `Fase 1 com ${prelimMatches} ${prelimMatches === 1 ? 'preliminar' : 'preliminares'} ➔ ${nextStageName} ➔ Final (${n} ${entityType})`;
   }
+
+  if (currentTeamSize > 1 && teamFormingMode === "random_teams") {
+    const totalPlayersNeeded = n * currentTeamSize;
+    text += ` • Total: ${totalPlayersNeeded} jogadores (${currentTeamSize} por time)`;
+  }
+
+  hintEl.textContent = text;
 }
 
 function updatePlayerListStatusBadge() {
@@ -210,11 +293,16 @@ function updatePlayerListStatusBadge() {
 
   const currentNames = getEnteredPlayerNames();
   const filled = currentNames.length;
-  badge.textContent = `${filled} de ${currentSelectedCount} preenchidos`;
+  const targetRequired = (currentTeamSize > 1 && teamFormingMode === "random_teams") 
+    ? (currentSelectedCount * currentTeamSize) 
+    : currentSelectedCount;
 
-  if (filled === currentSelectedCount) {
+  const entityLabel = (currentTeamSize > 1 && teamFormingMode === "random_teams") ? "jogadores" : (currentTeamSize === 1 ? "lutadores" : "equipes");
+  badge.textContent = `${filled} de ${targetRequired} ${entityLabel} preenchidos`;
+
+  if (filled === targetRequired) {
     badge.className = "text-xs font-mono text-emerald-400 font-bold";
-  } else if (filled > currentSelectedCount) {
+  } else if (filled > targetRequired) {
     badge.className = "text-xs font-mono text-amber-400 font-bold";
   } else {
     badge.className = "text-xs font-mono text-cyan-400 font-bold";
@@ -225,9 +313,18 @@ function onPlayerListTextInput() {
   const text = document.getElementById("playerListInput").value;
   const lines = text.split("\n").filter(l => l.trim().length > 0);
   
-  // Se o usuário colou mais nomes do que o selecionado, expande a contagem automaticamente
-  if (lines.length > currentSelectedCount) {
-    setPlayerCount(lines.length);
+  const targetRequired = (currentTeamSize > 1 && teamFormingMode === "random_teams") 
+    ? (currentSelectedCount * currentTeamSize) 
+    : currentSelectedCount;
+
+  // Se colar mais nomes que o necessário, auto-ajusta
+  if (lines.length > targetRequired) {
+    if (currentTeamSize === 1 || teamFormingMode !== "random_teams") {
+      setPlayerCount(lines.length);
+    } else {
+      const neededTeams = Math.ceil(lines.length / currentTeamSize);
+      setPlayerCount(neededTeams);
+    }
   } else {
     updatePlayerListStatusBadge();
   }
@@ -261,7 +358,13 @@ function renderSlotsInputs() {
   const currentNames = getEnteredPlayerNames();
   container.innerHTML = "";
 
-  for (let i = 0; i < currentSelectedCount; i++) {
+  const totalSlots = (currentTeamSize > 1 && teamFormingMode === "random_teams") 
+    ? (currentSelectedCount * currentTeamSize) 
+    : currentSelectedCount;
+
+  const labelPrefix = (currentTeamSize > 1 && teamFormingMode === "random_teams") ? "Jogador" : (currentTeamSize === 1 ? "Lutador" : "Equipe");
+
+  for (let i = 0; i < totalSlots; i++) {
     const val = currentNames[i] || "";
     const row = document.createElement("div");
     row.className = "flex items-center gap-2";
@@ -272,7 +375,7 @@ function renderSlotsInputs() {
 
     const input = document.createElement("input");
     input.type = "text";
-    input.placeholder = `Nome do Lutador ${i + 1}`;
+    input.placeholder = `${labelPrefix} ${i + 1}`;
     input.value = val;
     input.className = "slot-input flex-1 bg-[#161c28] border border-slate-700 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-medium";
     input.oninput = syncSlotsToTextarea;
@@ -297,10 +400,16 @@ function syncSlotsToTextarea() {
 
 function autofillMissingPlayers() {
   const currentNames = getEnteredPlayerNames();
-  while (currentNames.length < currentSelectedCount) {
-    currentNames.push(`Lutador ${currentNames.length + 1}`);
+  const totalSlots = (currentTeamSize > 1 && teamFormingMode === "random_teams") 
+    ? (currentSelectedCount * currentTeamSize) 
+    : currentSelectedCount;
+
+  const labelPrefix = (currentTeamSize > 1 && teamFormingMode === "random_teams") ? "Jogador" : (currentTeamSize === 1 ? "Lutador" : "Equipe");
+
+  while (currentNames.length < totalSlots) {
+    currentNames.push(`${labelPrefix} ${currentNames.length + 1}`);
   }
-  document.getElementById("playerListInput").value = currentNames.slice(0, currentSelectedCount).join("\n");
+  document.getElementById("playerListInput").value = currentNames.slice(0, totalSlots).join("\n");
   if (currentInputMode === "slots") {
     renderSlotsInputs();
   }
@@ -327,20 +436,20 @@ function saveTournamentData() {
 }
 
 /**
- * Cria a estrutura de fases e partidas do torneio para QUALQUER quantidade de participantes
+ * Cria a estrutura de fases e partidas do torneio para QUALQUER quantidade e formato (1x1 a 8x8)
  */
-function buildTournamentStructure(title, playerNames, mode = "random") {
-  let list = [...playerNames].filter(n => n.trim() !== "");
-  if (list.length < 2) return;
+function buildTournamentStructure(title, teamsList, mode = "random", teamSize = 1) {
+  if (teamsList.length < 2) return;
 
   if (mode === "random") {
-    // Embaralha para o sorteio oficial
-    list.sort(() => Math.random() - 0.5);
+    // Embaralha as equipes para os confrontos
+    teamsList.sort(() => Math.random() - 0.5);
   }
 
-  const participants = list.map((name, idx) => ({
+  const participants = teamsList.map((team, idx) => ({
     seed: idx + 1,
-    name: name.trim()
+    name: team.name,
+    members: team.members || []
   }));
 
   const count = participants.length;
@@ -350,6 +459,7 @@ function buildTournamentStructure(title, playerNames, mode = "random") {
     title: title || "Torneio PvP Oriental",
     date: new Date().toLocaleDateString("pt-BR"),
     participantsCount: count,
+    teamSize: teamSize || 1,
     rounds: rounds,
     champion: null
   };
@@ -601,14 +711,25 @@ function renderBracket() {
   // Atualizar textos dos cabeçalhos
   document.getElementById("headerTournamentTitle").textContent = currentTournament.title;
   document.getElementById("displayTournamentTitle").textContent = currentTournament.title;
+  
+  const modeLabel = currentTournament.teamSize && currentTournament.teamSize > 1 
+    ? `${currentTournament.teamSize}x${currentTournament.teamSize} (Equipes)` 
+    : "1x1 Individual";
+  const entityName = currentTournament.teamSize && currentTournament.teamSize > 1 ? "Equipes" : "Participantes";
+  
   document.getElementById("displayTournamentMeta").textContent = 
-    `${currentTournament.participantsCount} Participantes • ${currentTournament.rounds.length} Fases • Eliminatória Simples`;
+    `${currentTournament.participantsCount} ${entityName} • ${modeLabel} • ${currentTournament.rounds.length} Fases • Eliminatória Simples`;
   document.getElementById("tournamentDateLabel").textContent = `Data: ${currentTournament.date}`;
 
   // Campeão
   const champName = document.getElementById("championName");
   if (currentTournament.champion) {
-    champName.textContent = currentTournament.champion.name;
+    const champ = currentTournament.champion;
+    if (champ.members && champ.members.length > 1) {
+      champName.innerHTML = `${champ.name} <span class="block text-sm font-normal text-amber-200 mt-1 font-mono">Integrantes: ${champ.members.join(" • ")}</span>`;
+    } else {
+      champName.textContent = champ.name;
+    }
     champBanner.classList.remove("hidden");
   } else {
     champBanner.classList.add("hidden");
@@ -718,18 +839,30 @@ function createPlayerSlot(match, player, slotNumber) {
 
   // Lado Esquerdo: Seed e Nome
   const leftSide = document.createElement("div");
-  leftSide.className = "flex items-center gap-2.5 truncate";
+  leftSide.className = "flex items-center gap-2.5 truncate min-w-0 flex-1";
 
   const seedBadge = document.createElement("span");
-  seedBadge.className = "w-5 h-5 flex items-center justify-center text-xs font-mono font-bold rounded bg-[#1e232a] text-slate-400";
+  seedBadge.className = "w-5 h-5 flex-shrink-0 flex items-center justify-center text-xs font-mono font-bold rounded bg-[#1e232a] text-slate-400";
   seedBadge.textContent = player && player.seed ? player.seed : "-";
 
-  const nameSpan = document.createElement("span");
-  nameSpan.className = "truncate font-medium";
-  nameSpan.textContent = player ? player.name : "Aguardando...";
+  const nameBox = document.createElement("div");
+  nameBox.className = "truncate flex flex-col justify-center min-w-0 flex-1 py-0.5";
+
+  const titleSpan = document.createElement("span");
+  titleSpan.className = "truncate font-semibold text-xs text-white";
+  titleSpan.textContent = player ? player.name : "Aguardando...";
+  nameBox.appendChild(titleSpan);
+
+  if (player && player.members && player.members.length > 0 && currentTournament && currentTournament.teamSize > 1) {
+    const membersSpan = document.createElement("span");
+    membersSpan.className = "truncate text-[10px] text-cyan-300 font-mono";
+    membersSpan.textContent = player.members.join(" • ");
+    membersSpan.title = player.members.join(", ");
+    nameBox.appendChild(membersSpan);
+  }
 
   leftSide.appendChild(seedBadge);
-  leftSide.appendChild(nameSpan);
+  leftSide.appendChild(nameBox);
   slot.appendChild(leftSide);
 
   // Lado Direito: Placar ou Ícone de Vitória
@@ -880,7 +1013,8 @@ function openNewTournamentModal() {
     openLoginModal();
     return;
   }
-  setPlayerCount(currentSelectedCount || 10);
+  setTeamSize(currentTeamSize || 1);
+  setPlayerCount(currentSelectedCount || 8);
   switchInputMode("paste");
   updatePlayerListStatusBadge();
   document.getElementById("newTournamentModal").style.display = "flex";
@@ -897,25 +1031,75 @@ function openQuickAddModal() {
 function handleCreateTournament(event) {
   event.preventDefault();
   const title = document.getElementById("tournamentTitleInput").value.trim() || "Torneio PvP Oriental";
-  let list = getEnteredPlayerNames();
+  let rawNames = getEnteredPlayerNames();
   const mode = document.getElementById("drawModeSelect").value;
 
-  if (list.length < 2) {
-    alert("Insira ao menos 2 participantes para gerar os confrontos!");
+  if (rawNames.length < 2) {
+    alert("Insira ao menos 2 participantes para gerar o evento!");
     return;
   }
 
-  // Se faltam nomes para a quantidade escolhida, completa automaticamente para o GM
-  if (list.length < currentSelectedCount) {
-    const faltam = currentSelectedCount - list.length;
-    if (confirm(`Você escolheu ${currentSelectedCount} vagas, mas inseriu ${list.length} nomes.\n\nDeseja preencher as ${faltam} vagas restantes automaticamente (ex: Lutador ${list.length + 1})?`)) {
-      while (list.length < currentSelectedCount) {
-        list.push(`Lutador ${list.length + 1}`);
+  let teamsList = [];
+
+  if (currentTeamSize === 1) {
+    // 1x1 Individual
+    if (rawNames.length < currentSelectedCount) {
+      const faltam = currentSelectedCount - rawNames.length;
+      if (confirm(`Você escolheu ${currentSelectedCount} vagas, mas inseriu ${rawNames.length} nomes.\n\nDeseja preencher as ${faltam} vagas restantes automaticamente (ex: Lutador ${rawNames.length + 1})?`)) {
+        while (rawNames.length < currentSelectedCount) {
+          rawNames.push(`Lutador ${rawNames.length + 1}`);
+        }
+      } else {
+        return;
       }
+    }
+
+    teamsList = rawNames.slice(0, currentSelectedCount).map((name) => ({
+      name: name,
+      members: [name]
+    }));
+  } else {
+    // Modalidade por Equipes: 2x2 a 8x8
+    if (teamFormingMode === "random_teams") {
+      const totalPlayersNeeded = currentSelectedCount * currentTeamSize;
+      if (rawNames.length < totalPlayersNeeded) {
+        const faltam = totalPlayersNeeded - rawNames.length;
+        if (confirm(`Para formar ${currentSelectedCount} equipes no formato ${currentTeamSize}x${currentTeamSize}, são necessários ${totalPlayersNeeded} jogadores individuais, mas você inseriu ${rawNames.length}.\n\nDeseja preencher os ${faltam} jogadores restantes automaticamente (ex: Jogador ${rawNames.length + 1})?`)) {
+          while (rawNames.length < totalPlayersNeeded) {
+            rawNames.push(`Jogador ${rawNames.length + 1}`);
+          }
+        } else {
+          return;
+        }
+      }
+
+      // Sorteio dos integrantes dos times:
+      // Embaralha TODOS os jogadores individuais aleatoriamente
+      let pool = [...rawNames];
+      pool.sort(() => Math.random() - 0.5);
+
+      for (let i = 0; i < currentSelectedCount; i++) {
+        const members = pool.slice(i * currentTeamSize, (i + 1) * currentTeamSize);
+        teamsList.push({
+          name: `Equipe ${i + 1}`,
+          members: members
+        });
+      }
+    } else {
+      // Times já formados (cada linha é uma equipe pronta)
+      if (rawNames.length < currentSelectedCount) {
+        while (rawNames.length < currentSelectedCount) {
+          rawNames.push(`Equipe ${rawNames.length + 1}`);
+        }
+      }
+      teamsList = rawNames.slice(0, currentSelectedCount).map((teamName) => ({
+        name: teamName,
+        members: []
+      }));
     }
   }
 
-  buildTournamentStructure(title, list, mode);
+  buildTournamentStructure(title, teamsList, mode, currentTeamSize);
   closeNewTournamentModal();
 }
 
