@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eventos Oriental - Painel de Chaveamento para GM</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            pw: {
+              dark: '#0e1218',
+              card: '#1b2028',
+              cardHover: '#232a35',
+              border: '#2e3846',
+              cyan: '#00d2ff',
+              blue: '#0072ff',
+              gold: '#ffd700',
+              accent: '#38bdf8'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- html2canvas para exportar imagem -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Canvas Confetti para comemoração do Campeão -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    /* Estilos personalizados do Bracket Gamer */
+    body {
+      background: radial-gradient(circle at top center, #131b2a 0%, #090c10 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Linhas conectoras do bracket estilo e-sports */
+    .bracket-connector-r {
+      position: absolute;
+      right: -24px;
+      top: 50%;
+      width: 24px;
+      height: 2px;
+      background: #3b4758;
+    }
+
+    .bracket-connector-l {
+      position: absolute;
+      left: -24px;
+      top: 50%;
+      width: 24px;
+      height: 2px;
+      background: #3b4758;
+    }
+
+    /* Barra de rolagem customizada */
+    ::-webkit-scrollbar {
+      height: 8px;
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0e1218;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2a3547;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00d2ff;
+    }
+
+    /* Animação suave de glow */
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(0, 210, 255, 0.25);
+    }
+    .glow-gold {
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+    }
+  </style>
+</head>
+<body class="p-0 m-0 overflow-x-auto flex flex-col min-h-screen">
+
+  <!-- TOPO / CABEÇALHO COM LOGO E CONTROLES -->
+  <header class="bg-[#0f141d]/90 backdrop-blur border-b border-pw-border sticky top-0 z-40 px-6 py-3 shadow-xl">
+    <div class="max-w-[1700px] mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Marca & Logo -->
+      <div class="flex items-center gap-4">
+        <img src="assets/logo.jpg" alt="Oriental Perfect World" class="h-14 w-auto object-contain rounded-md shadow-md border border-pw-border/50" onerror="this.style.display='none'" />
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl md:text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-white uppercase">
+              EVENTOS ORIENTAL
+            </h1>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800/80">
+              Perfect World
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Sistema Oficial de Chaveamento & Torneios de GM
+          </p>
+        </div>
+      </div>
+
+      <!-- Informações do Torneio Ativo -->
+      <div class="hidden lg:flex items-center gap-3 bg-pw-card/80 px-4 py-2 rounded-lg border border-pw-border">
+        <i data-lucide="trophy" class="w-5 h-5 text-amber-400"></i>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Torneio Atual</div>
+          <div id="headerTournamentTitle" class="text-sm font-bold text-white truncate max-w-[280px]">
+            Torneio PvP Oriental 1v1
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Ações e Autenticação -->
+      <div class="flex items-center gap-2.5">
+        
+        <!-- Botão Exportar Imagem -->
+        <button id="btnExportImage" onclick="exportBracketImage()" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition shadow">
+          <i data-lucide="camera" class="w-4 h-4 text-cyan-400"></i>
+          <span class="hidden sm:inline">Exportar Imagem</span>
+        </button>
+
+        <!-- Botão Tela Cheia -->
+        <button onclick="toggleFullScreen()" title="Tela Cheia" class="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded-lg border border-slate-700 transition">
+          <i data-lucide="maximize" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Botões do GM (quando logado) -->
+        <div id="adminControlsGroup" class="hidden flex items-center gap-2">
+          <button onclick="openNewTournamentModal()" class="flex items-center gap-2 px-3.5 py-2 text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg shadow-lg shadow-cyan-900/30 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Novo Torneio</span>
+          </button>
+          
+          <button onclick="openQuickAddModal()" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg border border-amber-500/30 transition">
+            <i data-lucide="shuffle" class="w-4 h-4"></i>
+            <span class="hidden md:inline">Resortear</span>
+          </button>
+
+          <button onclick="logoutAdmin()" title="Encerrar Sessão GM" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded-lg transition">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span>Sair GM</span>
+          </button>
+        </div>
+
+        <!-- Botão Login GM (quando deslogado) -->
+        <button id="btnLoginGM" onclick="openLoginModal()" class="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-slate-800 hover:bg-cyan-950/80 hover:text-cyan-300 text-slate-300 rounded-lg border border-slate-700 hover:border-cyan-500/50 transition">
+          <i data-lucide="shield-check" class="w-4 h-4 text-cyan-400"></i>
+          <span>Acesso GM</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- SUB-BARRA DE STATUS DO GM E AVISOS -->
+  <div id="adminStatusBar" class="hidden bg-cyan-950/30 border-b border-cyan-800/40 px-6 py-1.5 text-xs text-cyan-300 flex items-center justify-between">
+    <div class="max-w-[1700px] mx-auto w-full flex items-center justify-between">
+      <span class="flex items-center gap-2">
+        <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-cyan-400"></i>
+        <strong>MODO GM ATIVO:</strong> Clique diretamente sobre o participante para declarar o vencedor da luta e avançar de fase!
+      </span>
+      <span class="text-slate-400 text-[11px] hidden md:inline">Autenticado como: <span class="text-white font-mono">admin</span></span>
+    </div>
+  </div>
+
+  <!-- CONTEÚDO PRINCIPAL: ÁREA DO BRACKET -->
+  <main class="flex-1 p-6 max-w-[1800px] w-full mx-auto flex flex-col justify-start">
+    
+    <!-- BANNER DO CAMPEÃO (SE HOUVER) -->
+    <div id="championBanner" class="hidden mb-6 bg-gradient-to-r from-amber-950/40 via-yellow-900/30 to-amber-950/40 border border-yellow-500/50 rounded-xl p-5 text-center shadow-2xl relative overflow-hidden glow-gold">
+      <div class="relative z-10 flex flex-col items-center">
+        <span class="px-3 py-1 text-xs font-bold bg-amber-500 text-black rounded-full uppercase tracking-wider mb-2 flex items-center gap-1.5 shadow">
+          <i data-lucide="crown" class="w-3.5 h-3.5"></i> Grande Campeão do Evento
+        </span>
+        <h2 id="championName" class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-400 tracking-wide">
+          -Blade
+        </h2>
+        <p class="text-xs text-amber-200/80 mt-1">Parabéns ao vencedor de Perfect World Oriental!</p>
+      </div>
+    </div>
+
+    <!-- ÁREA CAPTURÁVEL DO BRACKET -->
+    <div id="bracketCaptureArea" class="bg-[#12161f]/80 border border-pw-border/70 rounded-2xl p-6 shadow-2xl backdrop-blur">
+      
+      <!-- Cabeçalho de Identificação no Print Exportado -->
+      <div class="flex items-center justify-between border-b border-pw-border pb-4 mb-6">
+        <div>
+          <h2 id="displayTournamentTitle" class="text-xl md:text-2xl font-black text-white tracking-wide">
+            Torneio PvP Oriental 1v1
+          </h2>
+          <p id="displayTournamentMeta" class="text-xs text-slate-400 mt-0.5">
+            10 Participantes • Eliminatória Simples
+          </p>
+        </div>
+        <div class="flex items-center gap-3 text-right">
+          <img src="assets/logo.jpg" alt="Logo" class="h-10 w-auto object-contain rounded" onerror="this.style.display='none'">
+          <div class="text-[11px] text-slate-400">
+            <div class="font-bold text-cyan-400">EVENTOS ORIENTAL</div>
+            <div id="tournamentDateLabel">Data: 23/11/2026</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTAINER DAS COLUNAS DE FASES DO TORNEIO -->
+      <div id="bracketRoundsContainer" class="flex gap-12 overflow-x-auto pb-6 pt-2 items-stretch min-h-[500px]">
+        <!-- Fases geradas dinamicamente via JS -->
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- RODAPÉ -->
+  <footer class="mt-auto border-t border-pw-border bg-[#0b0e14] py-4 px-6 text-center text-xs text-slate-500">
+    <p>Eventos Oriental Perfect World © 2026 • Painel de Controle de GM para Torneios e Confrontos</p>
+  </footer>
+
+  <!-- ================= MODAIS ================= -->
+
+  <!-- MODAL 1: LOGIN DE GM -->
+  <div id="loginModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-pw-card border border-pw-border rounded-xl w-full max-w-md p-6 shadow-2xl relative">
+      <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-5">
+        <div class="p-2.5 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-white">Acesso do Game Master (GM)</h3>
+          <p class="text-xs text-slate-400">Insira suas credenciais administrativas</p>
+        </div>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Login / Usuário</label>
+          <input type="text" id="loginUsername" required placeholder="admin" class="w-full bg-[#12161f] border border-pw-border rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Senha do GM</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••••••" class="w-full bg-[#12161f] border border-pw-border rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <div id="loginErrorMsg" class="hidden text-xs text-rose-400 bg-rose-950/40 p-2.5 rounded-lg border border-rose-900/60">
+          Credenciais incorretas! Verifique o login e a senha.
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeLoginModal()" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 rounded-lg transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-lg shadow-lg shadow-cyan-900/30 transition">
+            Entrar como GM
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: CRIAR NOVO TORNEIO / INSERIR PARTICIPANTES -->
+  <div id="newTournamentModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-pw-card border border-pw-border rounded-xl w-full max-w-xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeNewTournamentModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-5 border-b border-pw-border pb-4">
+        <div class="p-2.5 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800">
+          <i data-lucide="swords" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-white">Criar Novo Chaveamento de Evento</h3>
+          <p class="text-xs text-slate-400">Insira a lista de lutadores e configure os confrontos</p>
+        </div>
+      </div>
+
+      <form id="newTournamentForm" onsubmit="handleCreateTournament(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nome do Evento / Torneio</label>
+          <input type="text" id="tournamentTitleInput" required placeholder="Ex: Torneio x1 Sem Buffs Oriental" class="w-full bg-[#12161f] border border-pw-border rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400 transition" value="Torneio PvP Oriental 1v1" />
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="block text-xs font-semibold text-slate-300">
+              Participantes (1 nome por linha)
+            </label>
+            <span id="playerCountBadge" class="text-[11px] text-cyan-400 font-mono">10 participantes</span>
+          </div>
+          <textarea id="playerListInput" rows="9" required class="w-full bg-[#12161f] border border-pw-border rounded-lg p-3 text-sm font-mono text-slate-200 focus:outline-none focus:border-cyan-400 transition" oninput="updateParticipantCount()"></textarea>
+          <p class="text-[11px] text-slate-400 mt-1">
+            Dica: Você pode copiar e colar a lista direto do jogo ou Discord. Se o número não for exato (ex: 10, 12), o sistema cria a Fase 1 classificatória automaticamente!
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Modo de Sorteio</label>
+            <select id="drawModeSelect" class="w-full bg-[#12161f] border border-pw-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+              <option value="random">Embaralhar / Aleatório (Sorteio)</option>
+              <option value="ordered">Manter Ordem Informada (Seeds 1 a N)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Exemplo Rápido</label>
+            <button type="button" onclick="loadSamplePlayers()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 py-2 rounded-lg text-xs font-semibold transition">
+              Carregar Exemplo do Print (10 Players)
+            </button>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4 border-t border-pw-border">
+          <button type="button" onclick="closeNewTournamentModal()" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 rounded-lg transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-lg shadow-lg shadow-cyan-900/30 transition flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Gerar Chaveamento</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: DEFINIR PLACAR / DETALHES DA PARTIDA -->
+  <div id="matchModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-pw-card border border-pw-border rounded-xl w-full max-w-md p-6 shadow-2xl relative">
+      <button onclick="closeMatchModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="text-center mb-5">
+        <span id="modalMatchRoundName" class="text-xs uppercase font-bold text-cyan-400 tracking-wider">Fase 2 • Luta 5</span>
+        <h3 class="text-lg font-bold text-white mt-1">Resultado do Confronto</h3>
+        <p class="text-xs text-slate-400">Selecione o vencedor ou digite o placar</p>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Jogador 1 -->
+        <div id="player1Card" class="p-4 bg-[#12161f] rounded-lg border border-pw-border hover:border-cyan-500/50 cursor-pointer transition flex items-center justify-between" onclick="selectWinner(1)">
+          <div class="flex items-center gap-3">
+            <span id="modalP1Seed" class="w-6 h-6 rounded bg-slate-800 text-slate-300 font-mono text-xs flex items-center justify-center font-bold">1</span>
+            <span id="modalP1Name" class="font-bold text-white text-base">-Blade</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="number" id="modalP1Score" min="0" max="99" value="0" onclick="event.stopPropagation()" class="w-12 bg-slate-800 text-center text-sm font-bold text-cyan-400 border border-slate-700 rounded py-1" />
+            <button class="px-2.5 py-1 text-xs bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600 hover:text-white rounded border border-cyan-500/40 font-semibold transition">
+              Vencedor
+            </button>
+          </div>
+        </div>
+
+        <div class="text-center text-xs font-bold text-slate-500 uppercase tracking-widest">VS</div>
+
+        <!-- Jogador 2 -->
+        <div id="player2Card" class="p-4 bg-[#12161f] rounded-lg border border-pw-border hover:border-cyan-500/50 cursor-pointer transition flex items-center justify-between" onclick="selectWinner(2)">
+          <div class="flex items-center gap-3">
+            <span id="modalP2Seed" class="w-6 h-6 rounded bg-slate-800 text-slate-300 font-mono text-xs flex items-center justify-center font-bold">4</span>
+            <span id="modalP2Name" class="font-bold text-white text-base">Crist</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="number" id="modalP2Score" min="0" max="99" value="0" onclick="event.stopPropagation()" class="w-12 bg-slate-800 text-center text-sm font-bold text-cyan-400 border border-slate-700 rounded py-1" />
+            <button class="px-2.5 py-1 text-xs bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600 hover:text-white rounded border border-cyan-500/40 font-semibold transition">
+              Vencedor
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center gap-2 pt-6 mt-4 border-t border-pw-border">
+        <button type="button" onclick="resetCurrentMatchWinner()" class="px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/30 border border-rose-900/50 rounded-lg transition">
+          Resetar Luta
+        </button>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeMatchModal()" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 rounded-lg transition">
+            Fechar
+          </button>
+          <button type="button" onclick="saveMatchScores()" class="px-4 py-2 text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-500 rounded-lg transition">
+            Salvar Placar
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SCRIPT PRINCIPAL DO CHAVEAMENTO E LÓGICA -->
+  <script src="app.js"></script>
+</body>
+</html>
