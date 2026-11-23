@@ -14,6 +14,8 @@ const GM_CREDENTIALS = {
 // Estado da Aplicação
 let isAdminLoggedIn = false;
 let currentTournament = null;
+let savedActiveTournament = null;
+let isViewingHistory = false;
 let activeModalMatch = null;
 
 // Participantes padrão removidos (inicia 100% limpo)
@@ -33,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Carregar torneio do localStorage
   loadTournamentData();
+  updateHistoryBadge();
 });
 
 // ================= AUTENTICAÇÃO GM =================
@@ -913,6 +916,9 @@ function setMatchWinner(match, winnerPlayer) {
     // SÓ COROA O CAMPEÃO SE FOR DE FATO A ÚLTIMA FASE (GRANDE FINAL)!
     currentTournament.champion = winnerPlayer;
     triggerConfetti();
+
+    // Salvar automaticamente no Histórico / Hall da Fama Oficial
+    saveTournamentToHistory(currentTournament, match);
   }
 
   saveTournamentData();
@@ -1173,4 +1179,237 @@ function triggerConfetti() {
       });
     }, 250);
   }
+}
+
+// ================= HISTÓRICO OFICIAL DE TORNEIOS (HALL DA FAMA) =================
+
+const HISTORY_STORAGE_KEY = "oriental_tournaments_history_v1";
+
+function getTournamentsHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.error("Erro ao carregar histórico:", e);
+    return [];
+  }
+}
+
+function updateHistoryBadge() {
+  const badge = document.getElementById("historyCountBadge");
+  const clearBtn = document.getElementById("btnClearAllHistoryBtn");
+  if (!badge) return;
+
+  const history = getTournamentsHistory();
+  if (history.length > 0) {
+    badge.textContent = history.length;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
+  }
+
+  if (clearBtn) {
+    if (isAdminLoggedIn && history.length > 0) {
+      clearBtn.classList.remove("hidden");
+    } else {
+      clearBtn.classList.add("hidden");
+    }
+  }
+}
+
+function saveTournamentToHistory(tournament, finalMatch) {
+  if (!tournament || !tournament.champion) return;
+
+  const history = getTournamentsHistory();
+  const id = tournament.id || ("torneio_" + Date.now());
+  tournament.id = id;
+
+  // Localizar o vice-campeão da final
+  let runnerUp = null;
+  if (finalMatch) {
+    if (finalMatch.p1 && tournament.champion.name === finalMatch.p1.name) {
+      runnerUp = finalMatch.p2;
+    } else if (finalMatch.p2 && tournament.champion.name === finalMatch.p2.name) {
+      runnerUp = finalMatch.p1;
+    }
+  }
+
+  // Prepara o registro histórico
+  const entry = {
+    id: id,
+    title: tournament.title || "Torneio PvP Oriental",
+    date: tournament.date || new Date().toLocaleDateString("pt-BR"),
+    timestamp: Date.now(),
+    teamSize: tournament.teamSize || 1,
+    participantsCount: tournament.participantsCount,
+    champion: tournament.champion,
+    runnerUp: runnerUp,
+    rounds: JSON.parse(JSON.stringify(tournament.rounds))
+  };
+
+  // Evita duplicatas substituindo caso já exista o mesmo ID
+  const existingIndex = history.findIndex(h => h.id === id);
+  if (existingIndex >= 0) {
+    history[existingIndex] = entry;
+  } else {
+    history.unshift(entry); // Adiciona no início (mais recente primeiro)
+  }
+
+  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  updateHistoryBadge();
+}
+
+function openHistoryModal() {
+  const modal = document.getElementById("historyModal");
+  const container = document.getElementById("historyListContainer");
+  const history = getTournamentsHistory();
+
+  container.innerHTML = "";
+
+  if (history.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 px-4 bg-[#12161f] rounded-xl border border-pw-border/60">
+        <div class="w-16 h-16 mx-auto rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
+          <i data-lucide="award" class="w-8 h-8"></i>
+        </div>
+        <h4 class="text-base font-bold text-white mb-1">Nenhum Torneio Arquivado</h4>
+        <p class="text-xs text-slate-400 max-w-sm mx-auto">
+          Assim que um torneio for disputado e o campeão for coroado na Grande Final, o histórico do evento e o chaveamento completo serão salvos automaticamente aqui!
+        </p>
+      </div>
+    `;
+  } else {
+    history.forEach((t, index) => {
+      const card = document.createElement("div");
+      card.className = "p-4 bg-[#141923] border border-slate-700/80 hover:border-amber-500/60 rounded-xl transition shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4";
+
+      const modeText = t.teamSize > 1 ? `${t.teamSize}x${t.teamSize} (Equipes)` : "1x1 Individual";
+
+      let champMembers = "";
+      if (t.champion && t.champion.members && t.champion.members.length > 1) {
+        champMembers = `<span class="text-[11px] text-cyan-300 font-mono block mt-0.5">${t.champion.members.join(" • ")}</span>`;
+      }
+
+      let runnerUpDisplay = "";
+      if (t.runnerUp) {
+        let runnerMembers = "";
+        if (t.runnerUp.members && t.runnerUp.members.length > 1) {
+          runnerMembers = ` (${t.runnerUp.members.join(", ")})`;
+        }
+        runnerUpDisplay = `
+          <div class="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
+            <span class="text-slate-300 font-semibold">🥈 Vice:</span>
+            <span class="text-slate-200">${t.runnerUp.name}${runnerMembers}</span>
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-1.5">
+            <h4 class="text-base font-bold text-white truncate">${t.title}</h4>
+            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800">
+              ${modeText}
+            </span>
+            <span class="text-[11px] text-slate-400 font-mono">
+              📅 ${t.date}
+            </span>
+          </div>
+
+          <!-- Campeão -->
+          <div class="flex items-start gap-2 bg-[#1a212d] p-2.5 rounded-lg border border-amber-500/30">
+            <span class="text-lg">🏆</span>
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Grande Campeão</div>
+              <div class="text-sm font-extrabold text-amber-300">${t.champion ? t.champion.name : "N/D"}</div>
+              ${champMembers}
+            </div>
+          </div>
+
+          ${runnerUpDisplay}
+        </div>
+
+        <!-- Ações -->
+        <div class="flex items-center gap-2 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+          <button onclick="viewHistoricalTournament('${t.id}')" class="px-3.5 py-2 text-xs font-bold bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-black rounded-lg shadow-md transition flex items-center gap-1.5">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+            <span>Ver Chaveamento</span>
+          </button>
+
+          ${isAdminLoggedIn ? `
+            <button onclick="deleteHistoricalTournament('${t.id}')" title="Excluir este registro" class="p-2 text-rose-400 hover:text-white bg-rose-950/40 hover:bg-rose-900 border border-rose-900/60 rounded-lg transition">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          ` : ''}
+        </div>
+      `;
+
+      container.appendChild(card);
+    });
+  }
+
+  updateHistoryBadge();
+  modal.style.display = "flex";
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeHistoryModal() {
+  document.getElementById("historyModal").style.display = "none";
+}
+
+function viewHistoricalTournament(historyId) {
+  const history = getTournamentsHistory();
+  const target = history.find(h => h.id === historyId);
+  if (!target) return;
+
+  // Se não estiver vendo histórico, salva o torneio ao vivo atual na memória
+  if (!isViewingHistory) {
+    savedActiveTournament = currentTournament ? JSON.parse(JSON.stringify(currentTournament)) : null;
+  }
+
+  isViewingHistory = true;
+  currentTournament = JSON.parse(JSON.stringify(target));
+
+  // Exibe o banner de aviso
+  const banner = document.getElementById("viewingHistoryBanner");
+  const titleSpan = document.getElementById("viewingHistoryTitle");
+  if (banner && titleSpan) {
+    titleSpan.textContent = `"${target.title}" (Realizado em ${target.date})`;
+    banner.classList.remove("hidden");
+  }
+
+  closeHistoryModal();
+  renderBracket();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function returnToLiveTournament() {
+  isViewingHistory = false;
+  currentTournament = savedActiveTournament;
+  savedActiveTournament = null;
+
+  const banner = document.getElementById("viewingHistoryBanner");
+  if (banner) banner.classList.add("hidden");
+
+  renderBracket();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function deleteHistoricalTournament(historyId) {
+  if (!isAdminLoggedIn) return;
+  if (!confirm("Tem certeza que deseja excluir este torneio do histórico?")) return;
+
+  let history = getTournamentsHistory();
+  history = history.filter(h => h.id !== historyId);
+  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+
+  openHistoryModal(); // Atualiza a lista na tela
+}
+
+function confirmClearAllHistory() {
+  if (!isAdminLoggedIn) return;
+  if (!confirm("Tem certeza que deseja apagar TODO o histórico de torneios do servidor? Esta ação não pode ser desfeita.")) return;
+
+  localStorage.removeItem(HISTORY_STORAGE_KEY);
+  openHistoryModal();
 }
