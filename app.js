@@ -40,11 +40,13 @@ document.addEventListener("DOMContentLoaded", () => {
 function openLoginModal() {
   document.getElementById("loginErrorMsg").classList.add("hidden");
   document.getElementById("loginForm").reset();
-  document.getElementById("loginModal").classList.remove("hidden");
+  const modal = document.getElementById("loginModal");
+  modal.style.display = "flex";
+  document.getElementById("loginUsername").focus();
 }
 
 function closeLoginModal() {
-  document.getElementById("loginModal").classList.add("hidden");
+  document.getElementById("loginModal").style.display = "none";
 }
 
 function handleLoginSubmit(event) {
@@ -696,11 +698,11 @@ function openMatchModal(match) {
   document.getElementById("modalP2Name").textContent = match.p2 ? match.p2.name : "Aguardando";
   document.getElementById("modalP2Score").value = match.p2 ? match.p2.score || 0 : 0;
 
-  document.getElementById("matchModal").classList.remove("hidden");
+  document.getElementById("matchModal").style.display = "flex";
 }
 
 function closeMatchModal() {
-  document.getElementById("matchModal").classList.add("hidden");
+  document.getElementById("matchModal").style.display = "none";
   activeModalMatch = null;
 }
 
@@ -765,11 +767,11 @@ function openNewTournamentModal() {
   }
   document.getElementById("playerListInput").value = "";
   updateParticipantCount();
-  document.getElementById("newTournamentModal").classList.remove("hidden");
+  document.getElementById("newTournamentModal").style.display = "flex";
 }
 
 function closeNewTournamentModal() {
-  document.getElementById("newTournamentModal").classList.add("hidden");
+  document.getElementById("newTournamentModal").style.display = "none";
 }
 
 function openQuickAddModal() {
@@ -780,7 +782,6 @@ function updateParticipantCount() {
   const text = document.getElementById("playerListInput").value;
   const lines = text.split("\n").filter(l => l.trim().length > 0);
   document.getElementById("playerCountBadge").textContent = `${lines.length} participantes`;
-}
 }
 
 function handleCreateTournament(event) {
