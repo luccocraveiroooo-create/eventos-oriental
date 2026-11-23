@@ -406,13 +406,6 @@ function generateUniversalBracket(participants) {
   // Se não for potência de 2 (ex: 5, 6, 7, 10, 12, 14, 20...)
   return generateCustomPrelimBracket(participants, power);
 }
-  } else {
-    // Caso com fase preliminar
-    return generateCustomPrelimBracket(participants, power);
-  }
-
-  return rounds;
-}
 
 function generateCustomPrelimBracket(participants, power) {
   // Número de lutadores na rodada principal seguinte à preliminar
