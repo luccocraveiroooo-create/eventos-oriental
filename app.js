@@ -16,19 +16,7 @@ let isAdminLoggedIn = false;
 let currentTournament = null;
 let activeModalMatch = null;
 
-// Participantes padrão idênticos ao print enviado pelo usuário
-const DEFAULT_PARTICIPANTS = [
-  "-Blade",
-  "HeL",
-  "BaBa_YaGa",
-  "Crist",
-  "StanSK",
-  "JackTD",
-  "AbsoluT",
-  "monsther",
-  "KITANA",
-  "MarcossWF"
-];
+// Participantes padrão removidos (inicia 100% limpo)
 
 // Inicialização ao carregar a página
 document.addEventListener("DOMContentLoaded", () => {
@@ -43,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   updateAdminUI();
 
-  // Carregar torneio do localStorage ou iniciar o exemplo do print
+  // Carregar torneio do localStorage
   loadTournamentData();
 });
 
@@ -113,8 +101,23 @@ function loadTournamentData() {
     }
   }
 
-  // Caso inicial: Criar com os 10 jogadores do print
-  buildTournamentStructure("Torneio PvP Oriental 1v1", DEFAULT_PARTICIPANTS, "ordered");
+  // Estado inicial limpo: nenhum torneio fictício
+  currentTournament = null;
+  renderBracket();
+}
+
+function confirmClearTournament() {
+  if (!isAdminLoggedIn) return;
+  if (confirm("Tem certeza que deseja apagar o chaveamento atual e iniciar do zero?")) {
+    currentTournament = null;
+    localStorage.removeItem("oriental_tournament_data");
+    renderBracket();
+  }
+}
+
+function clearPlayerInput() {
+  document.getElementById("playerListInput").value = "";
+  updateParticipantCount();
 }
 
 function saveTournamentData() {
@@ -454,7 +457,31 @@ function generateCustomPrelimBracket(participants, power) {
 // ================= RENDERIZAÇÃO VISUAL DO BRACKET =================
 
 function renderBracket() {
-  if (!currentTournament) return;
+  const captureArea = document.getElementById("bracketCaptureArea");
+  const emptyState = document.getElementById("emptyTournamentState");
+  const champBanner = document.getElementById("championBanner");
+  const btnExport = document.getElementById("btnExportImage");
+  const headerInfoBox = document.getElementById("headerTournamentInfoBox");
+
+  if (!currentTournament) {
+    if (captureArea) captureArea.classList.add("hidden");
+    if (champBanner) champBanner.classList.add("hidden");
+    if (btnExport) btnExport.classList.add("hidden");
+    if (emptyState) emptyState.classList.remove("hidden");
+    if (headerInfoBox) headerInfoBox.classList.add("hidden");
+
+    const headerTitle = document.getElementById("headerTournamentTitle");
+    if (headerTitle) headerTitle.textContent = "Aguardando Início";
+
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Torneio Ativo
+  if (captureArea) captureArea.classList.remove("hidden");
+  if (emptyState) emptyState.classList.add("hidden");
+  if (btnExport) btnExport.classList.remove("hidden");
+  if (headerInfoBox) headerInfoBox.classList.remove("hidden");
 
   // Atualizar textos dos cabeçalhos
   document.getElementById("headerTournamentTitle").textContent = currentTournament.title;
@@ -464,7 +491,6 @@ function renderBracket() {
   document.getElementById("tournamentDateLabel").textContent = `Data: ${currentTournament.date}`;
 
   // Campeão
-  const champBanner = document.getElementById("championBanner");
   const champName = document.getElementById("championName");
   if (currentTournament.champion) {
     champName.textContent = currentTournament.champion.name;
@@ -733,7 +759,11 @@ function resetMatchRecursive(match) {
 // ================= MODAL NOVO TORNEIO =================
 
 function openNewTournamentModal() {
-  document.getElementById("playerListInput").value = DEFAULT_PARTICIPANTS.join("\n");
+  if (!isAdminLoggedIn) {
+    openLoginModal();
+    return;
+  }
+  document.getElementById("playerListInput").value = "";
   updateParticipantCount();
   document.getElementById("newTournamentModal").classList.remove("hidden");
 }
@@ -751,12 +781,6 @@ function updateParticipantCount() {
   const lines = text.split("\n").filter(l => l.trim().length > 0);
   document.getElementById("playerCountBadge").textContent = `${lines.length} participantes`;
 }
-
-function loadSamplePlayers() {
-  document.getElementById("playerListInput").value = DEFAULT_PARTICIPANTS.join("\n");
-  document.getElementById("tournamentTitleInput").value = "Torneio PvP Oriental 1v1";
-  document.getElementById("drawModeSelect").value = "ordered";
-  updateParticipantCount();
 }
 
 function handleCreateTournament(event) {
