@@ -357,8 +357,9 @@ function generateStandardBracket(participants) {
 }
 
 function generateCustomPrelimBracket(participants, power) {
-  // Número de lutas na preliminar
-  const prelimMatchesCount = participants.length - (power / 2);
+  // Número de lutadores na rodada principal seguinte à preliminar
+  const targetPlayersInMain = power / 2; // Ex: para N=6 -> 4; para N=10 -> 8; para N=12 -> 8
+  const prelimMatchesCount = participants.length - targetPlayersInMain;
   const round1Matches = [];
   let matchId = 1;
 
@@ -383,16 +384,28 @@ function generateCustomPrelimBracket(participants, power) {
 
   const rounds = [{ name: "Fase 1 (Preliminar)", matches: round1Matches }];
 
-  // Fase 2 e seguintes
-  const numR2 = power / 2;
-  const round2Matches = [];
-  for (let i = 0; i < numR2; i++) {
-    round2Matches.push({
+  // Rodada Principal seguinte (Quartas, Semi ou oitavas)
+  const numMatchesInMain = targetPlayersInMain / 2; // Ex: para 4 players -> 2 lutas; para 8 players -> 4 lutas
+  const mainRoundMatches = [];
+
+  // Distribuição equilibrada de byes e preliminares
+  let byeIdx = 0;
+  let prelimIdx = 0;
+
+  for (let i = 0; i < numMatchesInMain; i++) {
+    const p1 = byeIdx < byePlayers.length ? { ...byePlayers[byeIdx++], score: 0 } : null;
+    let p2 = null;
+
+    if (byeIdx < byePlayers.length) {
+      p2 = { ...byePlayers[byeIdx++], score: 0 };
+    }
+
+    mainRoundMatches.push({
       id: matchId,
       roundIdx: 1,
       matchNum: matchId,
-      p1: byePlayers[i] ? { ...byePlayers[i], score: 0 } : null,
-      p2: null,
+      p1: p1,
+      p2: p2,
       winner: null,
       targetMatchId: null,
       targetSlot: (i % 2 === 0) ? 1 : 2
@@ -400,21 +413,24 @@ function generateCustomPrelimBracket(participants, power) {
     matchId++;
   }
 
-  // Vincular preliminares à Fase 2
+  // Vincular os vencedores das preliminares aos slots vazios da rodada principal
+  let emptySlotMatches = mainRoundMatches.filter(m => m.p2 === null);
   round1Matches.forEach((pm, idx) => {
-    if (round2Matches[round2Matches.length - 1 - idx]) {
-      pm.targetMatchId = round2Matches[round2Matches.length - 1 - idx].id;
+    if (emptySlotMatches[idx]) {
+      pm.targetMatchId = emptySlotMatches[idx].id;
+      pm.targetSlot = 2;
     }
   });
 
-  let r2Name = "Fase 2";
-  if (numR2 === 4) r2Name = "Quartas de Final";
-  if (numR2 === 2) r2Name = "Semi-Finais";
-  rounds.push({ name: r2Name, matches: round2Matches });
+  let mainRoundName = "Fase 2";
+  if (numMatchesInMain === 4) mainRoundName = "Quartas de Final";
+  if (numMatchesInMain === 2) mainRoundName = "Semi-Finais";
+  if (numMatchesInMain === 1) mainRoundName = "Finais";
+  rounds.push({ name: mainRoundName, matches: mainRoundMatches });
 
-  // Restante das fases
-  let currentMatchesInRound = numR2 / 2;
-  let prevRoundMatches = round2Matches;
+  // Restante das fases até a final
+  let currentMatchesInRound = numMatchesInMain / 2;
+  let prevRoundMatches = mainRoundMatches;
   let rIndex = 2;
 
   while (currentMatchesInRound >= 1) {
