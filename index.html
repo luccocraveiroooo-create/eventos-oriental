@@ -297,9 +297,9 @@
     </div>
   </div>
 
-  <!-- MODAL 2: CRIAR NOVO TORNEIO / INSERIR PARTICIPANTES -->
-  <div id="newTournamentModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 items-center justify-center p-4" style="display: none;">
-    <div class="bg-pw-card border border-pw-border rounded-xl w-full max-w-xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+  <!-- MODAL 2: CRIAR NOVO TORNEIO / CONFIGURAR SORTEIO -->
+  <div id="newTournamentModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 items-center justify-center p-4" style="display: none;">
+    <div class="bg-pw-card border border-pw-border rounded-xl w-full max-w-2xl p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
       <button onclick="closeNewTournamentModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
@@ -309,54 +309,121 @@
           <i data-lucide="swords" class="w-6 h-6"></i>
         </div>
         <div>
-          <h3 class="text-lg font-bold text-white">Criar Novo Chaveamento de Evento</h3>
-          <p class="text-xs text-slate-400">Insira a lista de lutadores e configure os confrontos</p>
+          <h3 class="text-lg font-bold text-white">Configurar Torneio & Sorteio de Chaves</h3>
+          <p class="text-xs text-slate-400">Escolha a quantidade de vagas, adicione os lutadores e gere o chaveamento</p>
         </div>
       </div>
 
-      <form id="newTournamentForm" onsubmit="handleCreateTournament(event)" class="space-y-4">
+      <form id="newTournamentForm" onsubmit="handleCreateTournament(event)" class="space-y-5">
+        
+        <!-- Nome do Torneio -->
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nome do Evento / Torneio</label>
-          <input type="text" id="tournamentTitleInput" required placeholder="Ex: Torneio x1 Sem Buffs Oriental" class="w-full bg-[#12161f] border border-pw-border rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400 transition" value="Torneio PvP Oriental 1v1" />
+          <input type="text" id="tournamentTitleInput" required placeholder="Ex: Torneio PvP Oriental 1v1" class="w-full bg-[#12161f] border border-pw-border rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400 transition" value="Torneio PvP Oriental 1v1" />
         </div>
 
-        <div>
-          <div class="flex justify-between items-center mb-1.5">
-            <label class="block text-xs font-semibold text-slate-300">
-              Participantes (1 nick por linha)
+        <!-- Passo 1: Escolha da Quantidade de Participantes -->
+        <div class="bg-[#12161f] p-4 rounded-xl border border-pw-border">
+          <div class="flex items-center justify-between mb-2.5">
+            <label class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full bg-cyan-500 text-black flex items-center justify-center text-[11px] font-black">1</span>
+              Quantidade de Participantes
             </label>
-            <span id="playerCountBadge" class="text-[11px] text-cyan-400 font-mono">0 participantes</span>
+            <span id="bracketStructureHint" class="text-[11px] text-cyan-400 font-medium"></span>
           </div>
-          <textarea id="playerListInput" rows="8" required placeholder="Digite ou cole os nicks dos competidores aqui, um por linha...&#10;Exemplo:&#10;GuerreiroX&#10;MagoSupremo&#10;ArqueiroPro" class="w-full bg-[#12161f] border border-pw-border rounded-lg p-3 text-sm font-mono text-slate-200 focus:outline-none focus:border-cyan-400 transition" oninput="updateParticipantCount()"></textarea>
-          <p class="text-[11px] text-slate-400 mt-1">
-            Cole a lista copiada do jogo, Discord ou planilha. O sistema suporta qualquer quantidade de lutadores e calcula as preliminares automaticamente!
+
+          <!-- Presets Rápidos -->
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button type="button" onclick="setPlayerCount(4)" class="preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition" data-count="4">4 Players</button>
+            <button type="button" onclick="setPlayerCount(8)" class="preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition" data-count="8">8 Players</button>
+            <button type="button" onclick="setPlayerCount(10)" class="preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-cyan-500 bg-cyan-950/60 text-cyan-300 transition" data-count="10">10 Players</button>
+            <button type="button" onclick="setPlayerCount(12)" class="preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition" data-count="12">12 Players</button>
+            <button type="button" onclick="setPlayerCount(16)" class="preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition" data-count="16">16 Players</button>
+            <button type="button" onclick="setPlayerCount(24)" class="preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition" data-count="24">24 Players</button>
+            <button type="button" onclick="setPlayerCount(32)" class="preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition" data-count="32">32 Players</button>
+          </div>
+
+          <!-- Input Customizado de Quantidade -->
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400">Ou digite qualquer quantidade:</span>
+            <div class="flex items-center">
+              <button type="button" onclick="adjustPlayerCount(-1)" class="w-8 h-8 rounded-l-lg bg-slate-800 hover:bg-slate-700 text-white font-bold border border-slate-700 flex items-center justify-center">-</button>
+              <input type="number" id="customPlayerCountInput" min="2" max="64" value="10" oninput="onCustomCountChange()" class="w-16 h-8 text-center bg-slate-900 border-y border-slate-700 text-cyan-400 font-bold text-sm focus:outline-none" />
+              <button type="button" onclick="adjustPlayerCount(1)" class="w-8 h-8 rounded-r-lg bg-slate-800 hover:bg-slate-700 text-white font-bold border border-slate-700 flex items-center justify-center">+</button>
+            </div>
+            <span class="text-xs text-slate-400">participantes (mínimo 2, máximo 64)</span>
+          </div>
+        </div>
+
+        <!-- Passo 2: Nomes dos Lutadores -->
+        <div class="bg-[#12161f] p-4 rounded-xl border border-pw-border">
+          <div class="flex items-center justify-between mb-2.5">
+            <label class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full bg-cyan-500 text-black flex items-center justify-center text-[11px] font-black">2</span>
+              Nomes dos Participantes
+            </label>
+            <div class="flex items-center gap-2">
+              <span id="playerListStatusBadge" class="text-xs font-mono text-cyan-400 font-bold">0 de 10 preenchidos</span>
+            </div>
+          </div>
+
+          <!-- Alternador de Modos de Entrada -->
+          <div class="flex items-center gap-2 mb-2 border-b border-slate-800 pb-2">
+            <button type="button" id="tabPasteMode" onclick="switchInputMode('paste')" class="px-3 py-1 text-xs font-bold rounded bg-cyan-950 text-cyan-300 border border-cyan-800 transition">
+              Colar Lista (Texto)
+            </button>
+            <button type="button" id="tabSlotsMode" onclick="switchInputMode('slots')" class="px-3 py-1 text-xs font-bold rounded bg-slate-800 text-slate-400 hover:text-white transition">
+              Campos Individuais por Slot
+            </button>
+            <div class="ml-auto flex gap-1.5">
+              <button type="button" onclick="autofillMissingPlayers()" title="Preenche as vagas vazias automaticamente com Player 1, Player 2..." class="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-amber-500/30 transition">
+                Preencher Vagas Faltantes
+              </button>
+              <button type="button" onclick="clearPlayerInput()" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700 transition">
+                Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Modo 1: Textarea para colar lista -->
+          <div id="pasteInputContainer">
+            <textarea id="playerListInput" rows="7" required placeholder="Cole aqui os nicks dos participantes (1 por linha)...&#10;GuerreiroX&#10;MagoSupremo&#10;ArqueiroPro&#10;SacerdoteTop" class="w-full bg-[#161c28] border border-slate-700 rounded-lg p-3 text-sm font-mono text-slate-200 focus:outline-none focus:border-cyan-400 transition" oninput="onPlayerListTextInput()"></textarea>
+          </div>
+
+          <!-- Modo 2: Slots individuais gerados dinamicamente -->
+          <div id="slotsInputContainer" class="hidden max-h-[220px] overflow-y-auto pr-1 space-y-2">
+            <!-- Gerado via JS -->
+          </div>
+
+          <p class="text-[11px] text-slate-400 mt-2">
+            💡 Dica: Se colar mais nomes que o número escolhido, a quantidade de vagas se ajusta automaticamente!
           </p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Modo de Sorteio</label>
-            <select id="drawModeSelect" class="w-full bg-[#12161f] border border-pw-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
-              <option value="random">Embaralhar / Aleatório (Sorteio)</option>
-              <option value="ordered">Manter Ordem Inserida (Seeds 1 a N)</option>
+        <!-- Passo 3: Configuração do Sorteio -->
+        <div class="bg-[#12161f] p-4 rounded-xl border border-pw-border flex flex-wrap items-center justify-between gap-3">
+          <div class="flex-1 min-w-[220px]">
+            <label class="block text-xs font-bold text-white uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full bg-cyan-500 text-black flex items-center justify-center text-[11px] font-black">3</span>
+              Modo de Sorteio dos Confrontos
+            </label>
+            <select id="drawModeSelect" class="w-full bg-[#161c28] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+              <option value="random">Embaralhar / Sortear Aleatoriamente (Sorteio Oficial)</option>
+              <option value="ordered">Manter Posições Informadas (Seeds 1 a N)</option>
             </select>
           </div>
-          <div class="flex items-end">
-            <button type="button" onclick="clearPlayerInput()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 py-2 rounded-lg text-xs font-semibold transition">
-              Limpar Lista
+
+          <div class="text-right flex items-center gap-2 self-end">
+            <button type="button" onclick="closeNewTournamentModal()" class="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 rounded-lg transition">
+              Cancelar
+            </button>
+            <button type="submit" class="px-6 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-lg shadow-xl shadow-cyan-900/40 transition flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Sortear & Montar Chaves</span>
             </button>
           </div>
         </div>
 
-        <div class="flex justify-end gap-2 pt-4 border-t border-pw-border">
-          <button type="button" onclick="closeNewTournamentModal()" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 rounded-lg transition">
-            Cancelar
-          </button>
-          <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-lg shadow-lg shadow-cyan-900/30 transition flex items-center gap-1.5">
-            <i data-lucide="sparkles" class="w-4 h-4"></i>
-            <span>Gerar Chaveamento</span>
-          </button>
-        </div>
       </form>
     </div>
   </div>

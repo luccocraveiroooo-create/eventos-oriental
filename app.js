@@ -117,9 +117,188 @@ function confirmClearTournament() {
   }
 }
 
+// ================= GERENCIAMENTO DE SORTEIO & QUANTIDADE =================
+
+let currentSelectedCount = 10;
+let currentInputMode = "paste";
+
+function setPlayerCount(count) {
+  count = parseInt(count) || 2;
+  if (count < 2) count = 2;
+  if (count > 64) count = 64;
+  currentSelectedCount = count;
+
+  // Atualizar input numérico
+  const customInput = document.getElementById("customPlayerCountInput");
+  if (customInput) customInput.value = count;
+
+  // Atualizar botões de presets
+  document.querySelectorAll(".preset-btn").forEach(btn => {
+    const btnCount = parseInt(btn.getAttribute("data-count"));
+    if (btnCount === count) {
+      btn.className = "preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-cyan-500 bg-cyan-950/60 text-cyan-300 transition";
+    } else {
+      btn.className = "preset-btn px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-400 transition";
+    }
+  });
+
+  updateBracketStructureHint(count);
+  updatePlayerListStatusBadge();
+
+  if (currentInputMode === "slots") {
+    renderSlotsInputs();
+  }
+}
+
+function adjustPlayerCount(delta) {
+  setPlayerCount(currentSelectedCount + delta);
+}
+
+function onCustomCountChange() {
+  const val = parseInt(document.getElementById("customPlayerCountInput").value);
+  if (!isNaN(val)) {
+    setPlayerCount(val);
+  }
+}
+
+function updateBracketStructureHint(n) {
+  const hintEl = document.getElementById("bracketStructureHint");
+  if (!hintEl) return;
+
+  // Potência de 2
+  let power = 2;
+  while (power < n) {
+    power *= 2;
+  }
+
+  if (n === power) {
+    if (n === 4) hintEl.textContent = "Semi-Finais (2 lutas) ➔ Grande Final";
+    else if (n === 8) hintEl.textContent = "Quartas (4 lutas) ➔ Semi (2 lutas) ➔ Final";
+    else if (n === 16) hintEl.textContent = "Oitavas (8 lutas) ➔ Quartas ➔ Semi ➔ Final";
+    else if (n === 32) hintEl.textContent = "16 Avos (16 lutas) ➔ Oitavas ➔ Quartas ➔ Semi ➔ Final";
+    else hintEl.textContent = `${n} lutadores em chaveamento direto perfeito!`;
+  } else {
+    const targetPlayersInMain = power / 2;
+    const prelimMatches = n - targetPlayersInMain;
+    let nextStageName = targetPlayersInMain === 8 ? "Quartas" : (targetPlayersInMain === 4 ? "Semi" : "Oitavas");
+    hintEl.textContent = `Fase 1 com ${prelimMatches} ${prelimMatches === 1 ? 'preliminar' : 'preliminares'} ➔ ${nextStageName} ➔ Final`;
+  }
+}
+
+function updatePlayerListStatusBadge() {
+  const badge = document.getElementById("playerListStatusBadge");
+  if (!badge) return;
+
+  const currentNames = getEnteredPlayerNames();
+  const filled = currentNames.length;
+  badge.textContent = `${filled} de ${currentSelectedCount} preenchidos`;
+
+  if (filled === currentSelectedCount) {
+    badge.className = "text-xs font-mono text-emerald-400 font-bold";
+  } else if (filled > currentSelectedCount) {
+    badge.className = "text-xs font-mono text-amber-400 font-bold";
+  } else {
+    badge.className = "text-xs font-mono text-cyan-400 font-bold";
+  }
+}
+
+function onPlayerListTextInput() {
+  const text = document.getElementById("playerListInput").value;
+  const lines = text.split("\n").filter(l => l.trim().length > 0);
+  
+  // Se o usuário colou mais nomes do que o selecionado, expande a contagem automaticamente
+  if (lines.length > currentSelectedCount) {
+    setPlayerCount(lines.length);
+  } else {
+    updatePlayerListStatusBadge();
+  }
+}
+
+function switchInputMode(mode) {
+  currentInputMode = mode;
+  const tabPaste = document.getElementById("tabPasteMode");
+  const tabSlots = document.getElementById("tabSlotsMode");
+  const pasteContainer = document.getElementById("pasteInputContainer");
+  const slotsContainer = document.getElementById("slotsInputContainer");
+
+  if (mode === "paste") {
+    tabPaste.className = "px-3 py-1 text-xs font-bold rounded bg-cyan-950 text-cyan-300 border border-cyan-800 transition";
+    tabSlots.className = "px-3 py-1 text-xs font-bold rounded bg-slate-800 text-slate-400 hover:text-white transition";
+    pasteContainer.classList.remove("hidden");
+    slotsContainer.classList.add("hidden");
+  } else {
+    tabSlots.className = "px-3 py-1 text-xs font-bold rounded bg-cyan-950 text-cyan-300 border border-cyan-800 transition";
+    tabPaste.className = "px-3 py-1 text-xs font-bold rounded bg-slate-800 text-slate-400 hover:text-white transition";
+    slotsContainer.classList.remove("hidden");
+    pasteContainer.classList.add("hidden");
+    renderSlotsInputs();
+  }
+}
+
+function renderSlotsInputs() {
+  const container = document.getElementById("slotsInputContainer");
+  if (!container) return;
+
+  const currentNames = getEnteredPlayerNames();
+  container.innerHTML = "";
+
+  for (let i = 0; i < currentSelectedCount; i++) {
+    const val = currentNames[i] || "";
+    const row = document.createElement("div");
+    row.className = "flex items-center gap-2";
+
+    const badge = document.createElement("span");
+    badge.className = "w-6 h-6 rounded bg-[#1e232a] text-cyan-400 font-mono font-bold text-xs flex items-center justify-center border border-slate-700/60";
+    badge.textContent = i + 1;
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = `Nome do Lutador ${i + 1}`;
+    input.value = val;
+    input.className = "slot-input flex-1 bg-[#161c28] border border-slate-700 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-medium";
+    input.oninput = syncSlotsToTextarea;
+
+    row.appendChild(badge);
+    row.appendChild(input);
+    container.appendChild(row);
+  }
+}
+
+function syncSlotsToTextarea() {
+  const inputs = document.querySelectorAll(".slot-input");
+  const names = [];
+  inputs.forEach(inp => {
+    if (inp.value.trim().length > 0) {
+      names.push(inp.value.trim());
+    }
+  });
+  document.getElementById("playerListInput").value = names.join("\n");
+  updatePlayerListStatusBadge();
+}
+
+function autofillMissingPlayers() {
+  const currentNames = getEnteredPlayerNames();
+  while (currentNames.length < currentSelectedCount) {
+    currentNames.push(`Lutador ${currentNames.length + 1}`);
+  }
+  document.getElementById("playerListInput").value = currentNames.slice(0, currentSelectedCount).join("\n");
+  if (currentInputMode === "slots") {
+    renderSlotsInputs();
+  }
+  updatePlayerListStatusBadge();
+}
+
 function clearPlayerInput() {
   document.getElementById("playerListInput").value = "";
-  updateParticipantCount();
+  if (currentInputMode === "slots") {
+    renderSlotsInputs();
+  }
+  updatePlayerListStatusBadge();
+}
+
+function getEnteredPlayerNames() {
+  const text = document.getElementById("playerListInput").value;
+  return text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 }
 
 function saveTournamentData() {
@@ -129,16 +308,14 @@ function saveTournamentData() {
 }
 
 /**
- * Cria a estrutura de fases e partidas do torneio
- * Suporta 10 participantes com layout exato do print (Fase 1 com 2 lutas preliminares e Fase 2 com Quartas)
- * Bem como qualquer número genérico (4, 8, 16, etc.)
+ * Cria a estrutura de fases e partidas do torneio para QUALQUER quantidade de participantes
  */
 function buildTournamentStructure(title, playerNames, mode = "random") {
   let list = [...playerNames].filter(n => n.trim() !== "");
   if (list.length < 2) return;
 
   if (mode === "random") {
-    // Embaralha
+    // Embaralha para o sorteio oficial
     list.sort(() => Math.random() - 0.5);
   }
 
@@ -148,133 +325,7 @@ function buildTournamentStructure(title, playerNames, mode = "random") {
   }));
 
   const count = participants.length;
-  let rounds = [];
-
-  // Se for exatamente 10 participantes (ou caso de 10 clássico do print):
-  if (count === 10) {
-    // Fase 1: 2 lutas (Seeds 8x9 e Seeds 7x10)
-    const round1 = {
-      name: "Fase 1",
-      matches: [
-        {
-          id: 1,
-          roundIdx: 0,
-          matchNum: 1,
-          p1: { ...participants[7], score: 0 }, // Seed 8 (monsther)
-          p2: { ...participants[8], score: 0 }, // Seed 9 (KITANA)
-          winner: null,
-          targetMatchId: 5,
-          targetSlot: 2
-        },
-        {
-          id: 2,
-          roundIdx: 0,
-          matchNum: 2,
-          p1: { ...participants[6], score: 0 }, // Seed 7 (AbsoluT)
-          p2: { ...participants[9], score: 0 }, // Seed 10 (MarcossWF)
-          winner: null,
-          targetMatchId: 6,
-          targetSlot: 2
-        }
-      ]
-    };
-
-    // Fase 2: Quartas (Matches 5, 3, 6, 4)
-    const round2 = {
-      name: "Fase 2",
-      matches: [
-        {
-          id: 5,
-          roundIdx: 1,
-          matchNum: 5,
-          p1: { ...participants[0], score: 0 }, // Seed 1 (-Blade)
-          p2: null, // Vencedor da luta 1
-          winner: null,
-          targetMatchId: 7,
-          targetSlot: 1
-        },
-        {
-          id: 3,
-          roundIdx: 1,
-          matchNum: 3,
-          p1: { ...participants[3], score: 0 }, // Seed 4 (Crist)
-          p2: { ...participants[4], score: 0 }, // Seed 5 (StanSK)
-          winner: null,
-          targetMatchId: 7,
-          targetSlot: 2
-        },
-        {
-          id: 6,
-          roundIdx: 1,
-          matchNum: 6,
-          p1: { ...participants[1], score: 0 }, // Seed 2 (HeL)
-          p2: null, // Vencedor da luta 2
-          winner: null,
-          targetMatchId: 8,
-          targetSlot: 1
-        },
-        {
-          id: 4,
-          roundIdx: 1,
-          matchNum: 4,
-          p1: { ...participants[2], score: 0 }, // Seed 3 (BaBa_YaGa)
-          p2: { ...participants[5], score: 0 }, // Seed 6 (JackTD)
-          winner: null,
-          targetMatchId: 8,
-          targetSlot: 2
-        }
-      ]
-    };
-
-    // Fase 3: Semi-Finais (Matches 7, 8)
-    const round3 = {
-      name: "Semi-Finais",
-      matches: [
-        {
-          id: 7,
-          roundIdx: 2,
-          matchNum: 7,
-          p1: null,
-          p2: null,
-          winner: null,
-          targetMatchId: 9,
-          targetSlot: 1
-        },
-        {
-          id: 8,
-          roundIdx: 2,
-          matchNum: 8,
-          p1: null,
-          p2: null,
-          winner: null,
-          targetMatchId: 9,
-          targetSlot: 2
-        }
-      ]
-    };
-
-    // Fase 4: Finais (Match 9)
-    const round4 = {
-      name: "Finais",
-      matches: [
-        {
-          id: 9,
-          roundIdx: 3,
-          matchNum: 9,
-          p1: null,
-          p2: null,
-          winner: null,
-          targetMatchId: null,
-          targetSlot: null
-        }
-      ]
-    };
-
-    rounds = [round1, round2, round3, round4];
-  } else {
-    // Gerador genérico para qualquer tamanho de chaveamento (potências de 2 ou com preliminares)
-    rounds = generateStandardBracket(participants);
-  }
+  const rounds = generateUniversalBracket(participants);
 
   currentTournament = {
     title: title || "Torneio PvP Oriental",
@@ -289,25 +340,25 @@ function buildTournamentStructure(title, playerNames, mode = "random") {
 }
 
 /**
- * Gerador de bracket genérico caso o GM use 4, 8, 16 ou outra quantidade de players
+ * Gerador de bracket universal adaptativo para qualquer número de lutadores (2 a 64)
  */
-function generateStandardBracket(participants) {
+function generateUniversalBracket(participants) {
   const n = participants.length;
-  // Próxima potência de 2
   let power = 2;
   while (power < n) {
     power *= 2;
   }
 
-  const roundsCount = Math.log2(power);
-  const rounds = [];
-  let matchIdCounter = 1;
-
-  // Se n == power (potência de 2 perfeita, ex: 4, 8, 16)
+  // Se for potência exata de 2 (ex: 4, 8, 16, 32, 64)
   if (n === power) {
+    const roundsCount = Math.log2(power);
+    const rounds = [];
+    let matchIdCounter = 1;
+
     for (let r = 0; r < roundsCount; r++) {
       const matchesInRound = power / Math.pow(2, r + 1);
       let roundName = `Fase ${r + 1}`;
+      if (matchesInRound === 8) roundName = "Oitavas de Final";
       if (matchesInRound === 4) roundName = "Quartas de Final";
       if (matchesInRound === 2) roundName = "Semi-Finais";
       if (matchesInRound === 1) roundName = "Finais";
@@ -348,6 +399,13 @@ function generateStandardBracket(participants) {
         }
       });
     }
+
+    return rounds;
+  }
+
+  // Se não for potência de 2 (ex: 5, 6, 7, 10, 12, 14, 20...)
+  return generateCustomPrelimBracket(participants, power);
+}
   } else {
     // Caso com fase preliminar
     return generateCustomPrelimBracket(participants, power);
@@ -781,8 +839,9 @@ function openNewTournamentModal() {
     openLoginModal();
     return;
   }
-  document.getElementById("playerListInput").value = "";
-  updateParticipantCount();
+  setPlayerCount(currentSelectedCount || 10);
+  switchInputMode("paste");
+  updatePlayerListStatusBadge();
   document.getElementById("newTournamentModal").style.display = "flex";
 }
 
@@ -794,22 +853,25 @@ function openQuickAddModal() {
   openNewTournamentModal();
 }
 
-function updateParticipantCount() {
-  const text = document.getElementById("playerListInput").value;
-  const lines = text.split("\n").filter(l => l.trim().length > 0);
-  document.getElementById("playerCountBadge").textContent = `${lines.length} participantes`;
-}
-
 function handleCreateTournament(event) {
   event.preventDefault();
   const title = document.getElementById("tournamentTitleInput").value.trim() || "Torneio PvP Oriental";
-  const rawList = document.getElementById("playerListInput").value;
-  const list = rawList.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+  let list = getEnteredPlayerNames();
   const mode = document.getElementById("drawModeSelect").value;
 
   if (list.length < 2) {
     alert("Insira ao menos 2 participantes para gerar os confrontos!");
     return;
+  }
+
+  // Se faltam nomes para a quantidade escolhida, completa automaticamente para o GM
+  if (list.length < currentSelectedCount) {
+    const faltam = currentSelectedCount - list.length;
+    if (confirm(`Você escolheu ${currentSelectedCount} vagas, mas inseriu ${list.length} nomes.\n\nDeseja preencher as ${faltam} vagas restantes automaticamente (ex: Lutador ${list.length + 1})?`)) {
+      while (list.length < currentSelectedCount) {
+        list.push(`Lutador ${list.length + 1}`);
+      }
+    }
   }
 
   buildTournamentStructure(title, list, mode);
