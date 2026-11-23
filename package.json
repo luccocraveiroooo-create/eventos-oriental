@@ -1,0 +1,12 @@
+{
+  "name": "eventos-oriental",
+  "version": "1.0.0",
+  "description": "Painel de Chaveamento e Torneios para GMs de Perfect World Oriental",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve ."
+  },
+  "keywords": ["perfect-world", "oriental", "torneio", "bracket", "gm", "eventos"],
+  "author": "Lucas",
+  "license": "MIT"
+}
