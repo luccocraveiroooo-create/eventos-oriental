@@ -409,16 +409,18 @@ function generateUniversalBracket(participants) {
 
 function generateCustomPrelimBracket(participants, power) {
   // Número de lutadores na rodada principal seguinte à preliminar
-  const targetPlayersInMain = power / 2; // Ex: para N=6 -> 4; para N=10 -> 8; para N=12 -> 8
+  const targetPlayersInMain = power / 2; // Ex: N=6 -> 4; N=10 -> 8; N=12 -> 8; N=14 -> 8
   const prelimMatchesCount = participants.length - targetPlayersInMain;
+  const numMatchesInMain = targetPlayersInMain / 2; // Ex: 4 players -> 2 lutas; 8 players -> 4 lutas
   const round1Matches = [];
   let matchId = 1;
 
-  // Jogadores que jogam a preliminar (as seeds mais baixas)
+  // Separação de quem ganha Bye e quem joga a preliminar
   const byeCount = participants.length - (prelimMatchesCount * 2);
   const byePlayers = participants.slice(0, byeCount);
   const prelimPlayers = participants.slice(byeCount);
 
+  // 1. Criar as lutas da Fase 1 (Preliminares)
   for (let i = 0; i < prelimMatchesCount; i++) {
     round1Matches.push({
       id: matchId,
@@ -435,20 +437,44 @@ function generateCustomPrelimBracket(participants, power) {
 
   const rounds = [{ name: "Fase 1 (Preliminar)", matches: round1Matches }];
 
-  // Rodada Principal seguinte (Quartas, Semi ou oitavas)
-  const numMatchesInMain = targetPlayersInMain / 2; // Ex: para 4 players -> 2 lutas; para 8 players -> 4 lutas
-  const mainRoundMatches = [];
+  // 2. Determinar quais partidas da rodada principal receberão os vencedores das preliminares
+  // Distribuímos de forma equilibrada entre as metades superior e inferior da chave
+  const receivingMatchIndices = [];
+  if (prelimMatchesCount === numMatchesInMain) {
+    // Todas as partidas da rodada principal recebem 1 preliminar
+    for (let i = 0; i < numMatchesInMain; i++) {
+      receivingMatchIndices.push(i);
+    }
+  } else if (prelimMatchesCount === 2 && numMatchesInMain === 4) {
+    // Caso clássico de 10 players (Quartas de 4 lutas):
+    // A luta 0 e a luta 2 recebem as preliminares (enfrentando Seed 1 e Seed 2)
+    receivingMatchIndices.push(0, 2);
+  } else {
+    // Espaçamento geral
+    const step = numMatchesInMain / prelimMatchesCount;
+    for (let i = 0; i < prelimMatchesCount; i++) {
+      receivingMatchIndices.push(Math.floor(i * step));
+    }
+  }
 
-  // Distribuição equilibrada de byes e preliminares
-  let byeIdx = 0;
-  let prelimIdx = 0;
+  // 3. Montar as partidas da rodada principal
+  const mainRoundMatches = [];
+  let topByeIndex = 0; // Para quem espera preliminar (Seeds mais altas)
+  let restByeIndex = prelimMatchesCount; // Para quem joga entre si
 
   for (let i = 0; i < numMatchesInMain; i++) {
-    const p1 = byeIdx < byePlayers.length ? { ...byePlayers[byeIdx++], score: 0 } : null;
+    const isReceivingPrelim = receivingMatchIndices.includes(i);
+    let p1 = null;
     let p2 = null;
 
-    if (byeIdx < byePlayers.length) {
-      p2 = { ...byePlayers[byeIdx++], score: 0 };
+    if (isReceivingPrelim) {
+      // 1 Lutador do Bye espera o vencedor da preliminar
+      p1 = topByeIndex < byePlayers.length ? { ...byePlayers[topByeIndex++], score: 0 } : null;
+      p2 = null; // Aguardando vencedor da Fase 1!
+    } else {
+      // 2 Lutadores do Bye se enfrentam diretamente
+      p1 = restByeIndex < byePlayers.length ? { ...byePlayers[restByeIndex++], score: 0 } : null;
+      p2 = restByeIndex < byePlayers.length ? { ...byePlayers[restByeIndex++], score: 0 } : null;
     }
 
     mainRoundMatches.push({
@@ -464,12 +490,12 @@ function generateCustomPrelimBracket(participants, power) {
     matchId++;
   }
 
-  // Vincular os vencedores das preliminares aos slots vazios da rodada principal
-  let emptySlotMatches = mainRoundMatches.filter(m => m.p2 === null);
+  // 4. Conectar os vencedores de cada preliminar à sua respectiva partida da rodada principal
   round1Matches.forEach((pm, idx) => {
-    if (emptySlotMatches[idx]) {
-      pm.targetMatchId = emptySlotMatches[idx].id;
-      pm.targetSlot = 2;
+    const targetMainIdx = receivingMatchIndices[idx];
+    if (mainRoundMatches[targetMainIdx]) {
+      pm.targetMatchId = mainRoundMatches[targetMainIdx].id;
+      pm.targetSlot = 2; // Entra no slot 2 para enfrentar o cabeça de chave (p1)
     }
   });
 
@@ -479,7 +505,7 @@ function generateCustomPrelimBracket(participants, power) {
   if (numMatchesInMain === 1) mainRoundName = "Finais";
   rounds.push({ name: mainRoundName, matches: mainRoundMatches });
 
-  // Restante das fases até a final
+  // 5. Restante das fases (Semi-Finais, Finais)
   let currentMatchesInRound = numMatchesInMain / 2;
   let prevRoundMatches = mainRoundMatches;
   let rIndex = 2;
@@ -511,6 +537,7 @@ function generateCustomPrelimBracket(participants, power) {
       const targetIdx = Math.floor(idx / 2);
       if (nextMatches[targetIdx]) {
         pm.targetMatchId = nextMatches[targetIdx].id;
+        pm.targetSlot = (idx % 2 === 0) ? 1 : 2;
       }
     });
 
@@ -718,6 +745,8 @@ function quickSelectWinner(match, player) {
 function setMatchWinner(match, winnerPlayer) {
   match.winner = winnerPlayer;
 
+  const isFinalRound = currentTournament && currentTournament.rounds && match.roundIdx === currentTournament.rounds.length - 1;
+
   // Se tiver partida seguinte vinculada, propaga o vencedor
   if (match.targetMatchId) {
     const targetMatch = findMatchById(match.targetMatchId);
@@ -728,8 +757,8 @@ function setMatchWinner(match, winnerPlayer) {
         targetMatch.p2 = { ...winnerPlayer, score: 0 };
       }
     }
-  } else {
-    // Se não há targetMatchId, esta foi a GRANDE FINAL!
+  } else if (isFinalRound) {
+    // SÓ COROA O CAMPEÃO SE FOR DE FATO A ÚLTIMA FASE (GRANDE FINAL)!
     currentTournament.champion = winnerPlayer;
     triggerConfetti();
   }
